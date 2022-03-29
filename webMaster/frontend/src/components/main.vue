@@ -2,14 +2,13 @@
   <div id="app">
     <mu-appbar>
       <div class="title">
-        网页大师
-        <mu-badge class="description" content="VUE代码生成器 " color="#00695c"/>
+        WebMaster
       </div>
-      <mu-icon-button icon="share" slot="right" @click="share.open=true"/>
-      <mu-icon-button icon="settings" slot="right" @click="setting.open=true"/>
+      <mu-icon style="margin-right: 20px; cursor: pointer" :size="20" value="share" slot="right"
+               @click="share.open=true"/>
     </mu-appbar>
-    <mu-row class="main-content" v-if="isFinishLabel">
-      <mu-col class="attributes" :width="width.attr" :tablet="width.attr" :desktop="width.attr">
+    <div class="main-content" style="display: flex; flex-direction: row;" v-if="isFinishLabel">
+      <div class="attributes" style="width: 15%">
         <mu-sub-header class="header">
           <mu-select-field class="select-field" autoWidth v-model="selectField.value">
             <mu-menu-item title="属性" value="属性">
@@ -17,61 +16,85 @@
             <mu-menu-item title="组件树" value="组件树">
             </mu-menu-item>
           </mu-select-field>
-          <span><a class="parent-component" v-if="parentComponent" @click="switchComponent">┡
+          <span style="color:rgb(83, 208, 254);"><a class="parent-component" v-if="parentComponent"
+                                                    @click="switchComponent">┡
               {{ parentComponent.info.name }}</a> {{ current.info ? ' - ' + current.info.name : '' }}</span>
         </mu-sub-header>
-        <attributes v-if="selectField.value==='属性'" class="attributes-content"/>
-        <component-tree v-if="selectField.value==='组件树'" class="component-tree"
-                        :components="$store.state.components.filter(c=>!c.parentId)"/>
-        <div class="attributes-bottom" v-if="current.info">
-          <mu-flat-button label="UI文档" @click="openUiDocument"/>
-          <mu-flat-button label="操作" @click="oprate"/>
-        </div>
-      </mu-col>
-      <mu-col class="preview" :width="width.preview" :tablet="width.preview" :desktop="width.preview">
+        <vue-scroll :ops="ops">
+          <attributes v-if="selectField.value==='属性'" class="attributes-content"/>
+          <component-tree v-if="selectField.value==='组件树'" class="component-tree"
+                          :components="$store.state.components.filter(c=>!c.parentId)"/>
+        </vue-scroll>
+      </div>
+      <div class="preview" style="width: 70%">
         <preview ref="preview"/>
-      </mu-col>
-      <mu-col class="components" :width="width.components" :tablet="width.components" :desktop="width.components">
+      </div>
+      <div class="components" style="width: 15%">
         <components ref="components"/>
-      </mu-col>
-    </mu-row>
+      </div>
+    </div>
     <mu-row v-if="!isFinishLabel">
-      <mu-col style="width: 15%; background-color: #e0f2f1; min-height: 500px">
-        <div class="result-box">
-          <div style="display: flex; flex-direction: column">
-            <div style="display: flex; flex-direction: row; justify-content: space-around">
-              <div class="edit_button" @click="edit">编辑</div>
-              <div id="export" class="finish_button" @click="finish">完成</div>
-            </div>
-            <div class="result-tittle" style="">标注结果</div>
+      <mu-col style="width: 15%; background-color: #333333; height: 600px">
+        <div style="display: flex; flex-direction: column; height: 15%">
+          <div
+            style="display: flex; flex-direction: row; justify-content: space-around; margin-top: 5px; margin-bottom: 5px">
+            <div class="edit_button" @click="edit">编辑</div>
+            <div id="export" class="finish_button" @click="finish">完成</div>
           </div>
-          <div class="result-content">
-            <div v-for="(item,key) in labelResult" :key="key" class="result-item">
-              <b>{{ key }}</b>
-              <div>
-                <i>{{ key }}{{ item.shape }}</i>
-              </div>
-              <div class="result-sub-box-icon">
+          <div class="result-tittle" style="">标注结果</div>
+        </div>
+        <div style="height: 85%">
+          <vue-scroll :ops="ops">
+          <div class="result-box">
+            <div class="result-content">
+              <div v-for="(item,key) in labelResult" :key="key" class="result-item">
+                <b>{{ key }}</b>
+                <div>
+                  <i>{{ key }}{{ item.shape }}</i>
+                </div>
+                <div class="result-sub-box-icon">
                 <span title="编辑" @click="handleCommand('edit',item.id,key)" style="cursor: pointer"
                       class="el-icon-edit-outline"></span>
-                <span style="padding-right: 10px"></span>
-                <span title="删除" @click="handleCommand('delete',item.id,key)" style="cursor: pointer"
-                      class="el-icon-delete"></span>
+                  <span style="padding-right: 10px"></span>
+                  <span title="删除" @click="handleCommand('delete',item.id,key)" style="cursor: pointer"
+                        class="el-icon-delete"></span>
+                </div>
               </div>
             </div>
           </div>
+        </vue-scroll>
         </div>
       </mu-col>
       <mu-col style="width: 85%;">
         <div style="display: flex; flex-direction:row;">
-          <mu-col v-loading="loading" id="canvas-box" style="width: 85%;">
-            <canvas id="label-canvas" style="display: block;width: 100%;height:100%"></canvas>
-            <img id="img-test" v-if="activeIndex%3 === 0 " src="../assets/img/kotei_9628.png"
-                 style="max-width: 100%;display: none;">
+          <mu-col v-if="havePicture" v-loading="loading" id="canvas-box" style="width: 85%;">
+            <div>
+              <canvas id="label-canvas" style="display: block;width: 100%;height:100%"></canvas>
+              <img id="img-test" :src="pic"
+                   style="max-width: 100%;display: none;">
+            </div>
           </mu-col>
-          <mu-col style="width: 15%;">
+          <mu-col v-if="!havePicture" style="width: 85%;">
+            <el-upload
+              v-loading="vloading"
+              element-loading-text="AI正在拼命识别中"
+              element-loading-spinner="el-icon-loading"
+              element-loading-background="rgba(0, 0, 0, 0.8)"
+              style="display: flex; justify-content: center;align-items: center; height: 100%"
+              class="upload-demo"
+              action="http://localhost:8000/api/picture"
+              :show-file-list="false"
+              multiple
+              :limit="3"
+              :on-progress="handelProgress"
+              :on-success="handelSuccess"
+              :file-list="fileList">
+              <el-link :underline="false" class="upload_pic" size="small">点击上传图片</el-link>
+            </el-upload>
+          </mu-col>
+          <mu-col style="width: 15%; min-height: 600px">
             <div class="controlPanel">
-              <div style="margin-top: 0px; margin-bottom: 15px; color: #00695c; font-weight: bold">类型</div>
+              <div id="step2" style="margin-top: 18px; margin-bottom: 18px; color: #3c8cfd; font-weight: bold">类型</div>
               <div v-for="item in shapes" :key="item.val"
                    :class="[shape.val === item.val ?'contro-item active': 'contro-item']" @click="handleShape(item)">
                 <mu-icon :value="item.icon"/>
@@ -83,21 +106,8 @@
 
       </mu-col>
     </mu-row>
-    <mu-dialog :open="setting.open" @close="setting.open=false" title="设置" scrollable>
-      <br>
-      <mu-checkbox label="选中边框效果" v-model="setting.selectEffect" @change="setSelectEffect"/>
-      <br/>
-      <mu-flat-button primary label="关闭" @click="setting.open=false" slot="actions"/>
-    </mu-dialog>
-    <mu-dialog :open="share.open" @close="share.open=false" title="分享当前布局" scrollable>
-      <br>
-      <mu-flat-button label="点击生成" @click="createShare" v-if="!share.url"/>
-      <br>
-      <mu-text-field v-model="share.url" type="url" :disabled="true" hintText="分享地址" label="分享地址" fullWidth/>
-      <mu-text-field v-model="share.experience" type="url" :disabled="true" label="体验地址" hintText="体验地址" fullWidth/>
-      <br/>
-      <mu-flat-button primary label="关闭" @click="share.open=false" slot="actions"/>
-    </mu-dialog>
+    <v-tour name="myTour" :steps="steps"></v-tour>
+    <v-tour name="pre" :steps="steps1"></v-tour>
   </div>
 </template>
 <script>
@@ -106,12 +116,90 @@ import components from './components'
 import preview from './preview'
 import componentTree from './componentTree.vue'
 import {saveAs} from 'file-saver'
+import {postAndGetCode} from "../api/api";
+import { Loading } from 'element-ui';
 
 export default {
-  name: 'app',
+  name: 'my-tour',
   data() {
     return {
+      steps1:[
+        {
+        target: '.components',  // We're using document.querySelector() under the hood
+        header: {
+          title: '下一步',
+        },
+        content: `从这里可以拖拽组件`,
+        params: {
+          placement: 'left' // Any valid Popper.js placement. See https://popper.js.org/popper-documentation.html#Popper.placements
+        }
+      },
+        {
+          target: '.select-field',  // We're using document.querySelector() under the hood
+          header: {
+            title: '下一步',
+          },
+          content: `从这里可以选择编辑属性或查看组件树`,
+        },],
+      steps: [
+        {
+          target: '.upload_pic',  // We're using document.querySelector() under the hood
+          header: {
+            title: '开始',
+          },
+          content: `点击这里上传一张网页图片!`
+        },
+        {
+          target: '#step2',  // We're using document.querySelector() under the hood
+          header: {
+            title: '下一步',
+          },
+          content: `在这里选择标注框类型对图片进行标注`
+        },
+        {
+          target: '.result-tittle',  // We're using document.querySelector() under the hood
+          header: {
+            title: '下一步',
+          },
+          content: `标注结果会在这里显示`
+        },
+        {
+          target: '.edit_button',  // We're using document.querySelector() under the hood
+          header: {
+            title: '下一步',
+          },
+          content: `如果发现标注框有问题，可以点击这里进入修改模式`
+        },
+        {
+          target: '.finish_button',  // We're using document.querySelector() under the hood
+          header: {
+            title: '下一步',
+          },
+          content: `标注完成后，点击这里即可生成预览视图`
+        },
+      ],
+      ops: {
+        vuescroll: {},
+        scrollPanel: {},
+        rail: {
+          keepShow: true,
+        },
+        bar: {
+          hoverStyle: true,
+          onlyShowBarOnScroll: false, //是否只有滚动的时候才显示滚动条
+          background: '#F5F5F5', //滚动条颜色
+          opacity: 0.5, //滚动条透明度
+          'overflow-x': 'hidden',
+        },
+        videoData: [],
+      },
+      vloading:false,
+      fileList: [],
       id: 0,
+      // '../../../static/assets/inputimage/tianmao.png'
+      pic: '',
+      PicName: '',
+      havePicture: false,
       loading: true,
       fabricObj: null,
       fabricJson: {},
@@ -136,13 +224,14 @@ export default {
         icon: 'text_fields'
       },
       shapeP: {'text': 0, 'link': 1, 'image': 2, 'button': 3, 'list': 4, 'searchInput': 5, 'input': 6},
-      shapes: [{
-        text: '文本',
-        val: 'text',
-        fill: 'rgba(85, 239, 196,0.1)',
-        stroke: '#00b894',
-        icon: 'text_fields'
-      },
+      shapes: [
+        {
+          text: '文本',
+          val: 'text',
+          fill: 'rgba(85, 239, 196,0.1)',
+          stroke: '#00b894',
+          icon: 'text_fields'
+        },
         {
           text: '链接',
           val: 'link',
@@ -200,102 +289,13 @@ export default {
         value: '属性'
       },
       isFinishLabel: false,
-      xml: '<object>\n' +
-        '<name>link</name>\n' +
-        '<xmin>493</xmin>\n' +
-        '<ymin>22</ymin>\n' +
-        '<xmax>561</xmax>\n' +
-        '<ymax>44</ymax>\n' +
-        '</object>\n' +
-        '<object>\n' +
-        '<name>link</name>\n' +
-        '<xmin>583</xmin>\n' +
-        '<ymin>22</ymin>\n' +
-        '<xmax>673</xmax>\n' +
-        '<ymax>44</ymax>\n' +
-        '</object>\n' +
-        '<object>\n' +
-        '<name>image</name>\n' +
-        '<xmin>246</xmin>\n' +
-        '<ymin>673</ymin>\n' +
-        '<xmax>381</xmax>\n' +
-        '<ymax>808</ymax>\n' +
-        '</object>\n' +
-        '<object>\n' +
-        '<name>image</name>\n' +
-        '<xmin>1190</xmin>\n' +
-        '<ymin>651</ymin>\n' +
-        '<xmax>1347</xmax>\n' +
-        '<ymax>785</ymax>\n' +
-        '</object>\n' +
-        '<object>\n' +
-        '<name>image</name>\n' +
-        '<xmin>718</xmin>\n' +
-        '<ymin>651</ymin>\n' +
-        '<xmax>853</xmax>\n' +
-        '<ymax>785</ymax>\n' +
-        '</object>\n' +
-        '<object>\n' +
-        '<name>image</name>\n' +
-        '<xmin>22</xmin>\n' +
-        '<ymin>0</ymin>\n' +
-        '<xmax>202</xmax>\n' +
-        '<ymax>67</ymax>\n' +
-        '</object>\n' +
-        '<object>\n' +
-        '<name>image</name>\n' +
-        '<xmin>1661</xmin>\n' +
-        '<ymin>673</ymin>\n' +
-        '<xmax>1796</xmax>\n' +
-        '<ymax>808</ymax>\n' +
-        '</object>\n' +
-        '<object>\n' +
-        '<name>image</name>\n' +
-        '<xmin>1010</xmin>\n' +
-        '<ymin>651</ymin>\n' +
-        '<xmax>1167</xmax>\n' +
-        '<ymax>718</ymax>\n' +
-        '</object>\n' +
-        '<object>\n' +
-        '<name>image</name>\n' +
-        '<xmin>0</xmin>\n' +
-        '<ymin>67</ymin>\n' +
-        '<xmax>1661</xmax>\n' +
-        '<ymax>628</ymax>\n' +
-        '</object>\n' +
-        '<object>\n' +
-        '<name>image</name>\n' +
-        '<xmin>67</xmin>\n' +
-        '<ymin>651</ymin>\n' +
-        '<xmax>224</xmax>\n' +
-        '<ymax>718</ymax>\n' +
-        '</object>\n' +
-        '<object>\n' +
-        '<name>image</name>\n' +
-        '<xmin>538</xmin>\n' +
-        '<ymin>673</ymin>\n' +
-        '<xmax>696</xmax>\n' +
-        '<ymax>740</ymax>\n' +
-        '</object>\n' +
-        '<object>\n' +
-        '<name>image</name>\n' +
-        '<xmin>67</xmin>\n' +
-        '<ymin>673</ymin>\n' +
-        '<xmax>224</xmax>\n' +
-        '<ymax>740</ymax>\n' +
-        '</object>\n' +
-        '<object>\n' +
-        '<name>image</name>\n' +
-        '<xmin>224</xmin>\n' +
-        '<ymin>179</ymin>\n' +
-        '<xmax>1212</xmax>\n' +
-        '<ymax>606</ymax>\n' +
-        '</object>\n'
+      xml: ''
     }
   },
   mounted() {
     this.setSelectEffect(this.setting.selectEffect)
-    let button = document.getElementById("export");
+    this.$tours['myTour'].start()
+    /*let button = document.getElementById("export");
     button.addEventListener("click", this.finish, false);
     this.$nextTick(() => {
       setTimeout(() => {
@@ -303,7 +303,7 @@ export default {
         this.fabricCanvas();
         this.fabricObjEvent();
       }, 500)
-    });
+    });*/
   },
   computed: {
     current: { //预览视图中选中的组件
@@ -349,7 +349,26 @@ export default {
     }
   },
   methods: {
+    guide() {
+      introJs().setOptions({
+        prevLabel: "上一步",
+        nextLabel: "下一步",
+        skipLabel: "跳过",
+        doneLabel: "结束"
+      }).oncomplete(function () {
+        //点击跳过按钮后执行的事件
+      }).onexit(function () {
+        //点击结束按钮后， 执行的事件
+      }).start();
+    },
     finish() {
+      const loading = this.$loading({
+        lock: true,//lock的修改符--默认是false
+        text: '正在努力生成预览视图',//显示在加载图标下方的加载文案
+        spinner: 'el-icon-loading',//自定义加载图标类名
+        background: 'rgba(0, 0, 0, 0.7)',//遮罩层颜色
+        target: document.querySelector('#app')//loading覆盖的dom元素节点
+      });
       let ih = window.screen.height
       let iw = window.screen.width
       let scale = 1
@@ -381,11 +400,41 @@ export default {
         data += '</object>'
         data += '\n'
       }
-      let content = JSON.stringify(data);
-      let blob = new Blob([content], {type: "text/plain;charset=utf-8"});
-      saveAs(blob, "preview.txt");
-
-      this.isFinishLabel = true
+      // let content = JSON.stringify(data);
+      // let blob = new Blob([content], {type: "text/plain;charset=utf-8"});
+      // saveAs(blob, "preview.txt");
+      console.log('data is', data)
+      postAndGetCode(data, this.PicName).then(
+        res => {
+          // console.log('res is', res)
+          // console.log('cssArray is', res['data']['style'])
+          // console.log('code is', res['data']['code'])
+          let code = res['data']['code']
+          let templateStart = 0
+          let templateEnd = code.search('</template>') + 11
+          let cssStart = code.search('<style scoped>') + 14
+          let cssEnd = code.search('</style>')
+          let VueCode = code.substring(templateStart, templateEnd)
+          // console.log('vuecode is', VueCode)
+          this.$store.commit('setState', {
+            VueCode: VueCode
+          })
+          // let cssCode = code.substring(cssStart, cssEnd)
+          // console.log('csscode is', cssCode)
+          this.$store.commit('setState', {
+            cssStyle: res['data']['style']
+          })
+          this.isFinishLabel = true
+          // this.isFinishLabel = true
+            // this.$refs.preview.exitEdit();
+        }
+      )
+      setTimeout(()=>{
+        loading.close()
+        this.$tours['pre'].start()
+      },5000)
+      // this.$refs.preview.Edit();
+      // this.$refs.preview.exitEdit();
     },
     switchComponent() {
       let el = document.getElementById(this.parentComponent.info.id)
@@ -422,13 +471,13 @@ export default {
       let cssText
       if (val) {
         cssText = `[data-component-active="true"] {
-                              box-shadow: inset 0px 0px 0px 1px pink!important;
+                              box-shadow: inset 0px 0px 0px 1px #2962ff!important;
                           }
                           [data-component-active]:hover {
-                              box-shadow: inset 0px 0px 0px 1px pink!important;
+                              box-shadow: inset 0px 0px 0px 1px #2962ff!important;
                           }
                           [data-component-active]:focus {
-                              box-shadow: inset 0px 0px 0px 1px pink!important;
+                              box-shadow: inset 0px 0px 0px 1px #2962ff!important;
                           }`
       } else {
         cssText = `[data-component-active="true"] {
@@ -445,6 +494,31 @@ export default {
       let textNode = document.createTextNode(cssText)
       style.innerHTML = ''
       style.appendChild(textNode)
+    },
+    handelProgress(event, file, fileList){
+      this.vloading=true
+    },
+    handelSuccess(response, file, fileList) {
+      // console.log('response', response['info'])
+      let info = response['info']
+      let name = info[0]['name']
+      let xml = info[0]['xml']
+      this.pic = '../../static/assets/inputimage/' + name
+      this.PicName = name
+      // console.log('this.pic', this.pic)
+      this.xml = xml
+      let button = document.getElementById("export");
+      button.addEventListener("click", this.finish, false);
+      this.havePicture = true
+      this.$nextTick(() => {
+        setTimeout(() => {
+          this.loading = false;
+          this.vloading = false
+          this.fabricCanvas();
+          this.fabricObjEvent();
+
+        }, 500)
+      });
     },
     createShare() {
       let share = new this.$lean.Object('Share')
@@ -693,19 +767,6 @@ export default {
       }
     },
     /**
-     * @desc 导出已标注图片成base64格式
-     * */
-    exportImg() {
-      let base64URl = this.fabricObj.toDataURL({
-        formart: 'png',
-        multiplier: 2
-      });
-      this.exportBaseData = base64URl;
-      this.imgDialog = true;
-      console.log(base64URl)
-      console.log(this.fabricObj.toJSON())
-    },
-    /**
      * @desc 编辑事件
      * */
     edit() {
@@ -804,8 +865,8 @@ export default {
   -ms-flex-item-align: start;
   align-self: flex-start;
   color: #fff;
-  background-color: @tealA700;
-  height: 56px;
+  background: radial-gradient(#2b2b2b 80%, #241f72);
+  height: 46px;
   padding: 0 8px;
   width: 100%;
   z-index: 3;
@@ -815,15 +876,15 @@ export default {
   font-family: 'Avenir', Helvetica, Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  color: #2c3e50;
+  color: #2695ff;
+
 }
 
 .title {
-  font-family: Consolas, Liberation Mono, Menlo, Courier, monospace;
-
-  .description {
-    vertical-align: super;
-  }
+  font-family: Verdana;
+  font-size: 20px;
+  color: #e6e6e6;
+  margin-left: 10px;
 }
 
 .main-content > div {
@@ -835,9 +896,13 @@ export default {
   overflow: auto;
 }
 
+.attribute_st {
+
+}
+
 .attributes {
   .client-height;
-  background-color: @previewBG;
+  background-color: #333333;
   position: relative;
   display: flex;
   flex-direction: column;
@@ -851,7 +916,7 @@ export default {
   .select-field {
     width: 70px;
     vertical-align: top;
-    text-align: center;
+    text-align: center;;
   }
 }
 
@@ -877,7 +942,7 @@ export default {
 
 .components {
   .client-height;
-  background-color: @previewBG;
+  background-color: #333333;
   overflow-y: scroll;
 }
 
@@ -912,23 +977,33 @@ export default {
 .controlPanel {
   width: 100%;
   height: 100%;
-  background: @teal50;
+  background: #333333;
   display: flex;
-  justify-content: center;
   flex-direction: column;
   align-items: center;
   /*margin-bottom: 15px;*/
   border-bottom: 1px solid #dad7d9;
 }
 
+.upload_pic {
+  margin-top: -60px;
+  font-size: 26px;
+  letter-spacing: 3px
+}
+
+.upload_pic:hover {
+  color: #2962ff;
+}
+
 .controlPanel .contro-item {
   text-align: center;
   cursor: pointer;
   width: 100%;
+  color: #757575;
 }
 
 .contro-item.active {
-  background: @teal200;
+  background: #1e88e5;
   color: #fff;
 }
 
@@ -938,7 +1013,7 @@ export default {
 }
 
 .controlPanel .contro-item.active i {
-  background: @teal200;
+  background: #1e88e5;
   color: #fff;
   border-radius: 3px;
 
@@ -957,30 +1032,30 @@ export default {
 .result-tittle {
   text-align: center;
   width: 100%;
-  color: #00695c;
+  color: #3f51b5;
   font-weight: bold;
 }
 
 .edit_button {
-  color: @teal500;
+  color: #3c8cfd;
   padding: 10px;
   font-weight: bold;
 }
 
 .finish_button {
-  color: @teal500;
+  color: #3c8cfd;
   padding: 10px;
   font-weight: bold;
 }
 
 .edit_button:hover {
   cursor: pointer;
-  color: @cyanA700;
+  color: #2962ff;
 }
 
 .finish_button:hover {
   cursor: pointer;
-  color: @cyanA700;
+  color: #2962ff;
 }
 
 .result-content {
@@ -989,6 +1064,7 @@ export default {
 
 .result-item {
   margin-bottom: 10px;
+  margin-left: 10px;
 }
 
 .result-sub-box {
@@ -1002,6 +1078,39 @@ export default {
 }
 
 .result-sub-box:hover .result-sub-box-icon {
+}
+
+/deep/ .mu-select-field {
+  .mu-dropDown-menu {
+    display: block;
+    width: 100%;
+    height: 32px;
+    color: #3c8cfd;
+  }
+
+  .mu-dropDown-menu-text {
+    line-height: 32px;
+    height: 32px;
+    padding-left: 0px;
+    padding-right: 24px;
+    word-wrap: break-word;
+    overflow: hidden;
+    color: #3c8cfd;
+  }
+
+  .mu-dropDown-menu-line {
+    color: #3c8cfd;
+  }
+
+  .mu-dropDown-menu-icon {
+    right: 0;
+    top: 6px;
+    color: #3c8cfd;
+  }
+}
+
+.test {
+  color: #3c8cfd;
 }
 
 </style>

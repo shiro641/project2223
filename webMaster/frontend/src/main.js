@@ -9,6 +9,8 @@ import SearchBar from './components/SearchInput'
 import list from './components/list'
 import { fabric } from 'fabric'
 
+import vcolorpicker from 'vcolorpicker'
+Vue.use(vcolorpicker)
 //iView-UI
 import iView from 'iview'
 Vue.use(iView)
@@ -29,7 +31,7 @@ Vue.component('list', list)
 //Muse-UI
 import MuseUI from 'muse-ui'
 import 'muse-ui/dist/muse-ui.css'
-// import '@/assets/css/theme-dark.css'
+import '@/assets/css/theme-dark.css'
 Vue.use(MuseUI)
 
 //为代码文本提供高亮、缩进
@@ -43,6 +45,15 @@ Vue.prototype.$prettyDom = pretty
 import lean from './utils/leancloud storage'
 Vue.prototype.$lean=lean
 
+import vuescroll from 'vuescroll';
+Vue.use(vuescroll);
+
+
+import VueTour from 'vue-tour'
+
+require('vue-tour/dist/vue-tour.css')
+
+Vue.use(VueTour)
 
 Vue.config.productionTip = false
 Vue.prototype.$compile = Vue.compile

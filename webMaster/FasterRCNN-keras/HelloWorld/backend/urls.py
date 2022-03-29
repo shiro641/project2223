@@ -8,4 +8,6 @@ urlpatterns = [
     url(r'^test$', views.snippet_list),
     url(r'^picture$', views.uploads_files),
     url(r'^get_picture$', views.return_picture),
+    url(r'^get_code$', views.getGode),
+    url(r'^get_assets$', views.return_assets),
 ]

@@ -12,7 +12,7 @@ var mount = function(id, _component) {
                     data[key] = _component.attributes[key].value
                 })
             }
-            
+
             if (component.uid) { //销毁旧实例
 
             }
@@ -36,7 +36,7 @@ var mount = function(id, _component) {
 
                 }
             })
-            console.log('components:', components)
+            // console.log('components:', components)
             resolve(vm)
 
         }, 200)
