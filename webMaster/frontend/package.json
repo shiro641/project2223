@@ -4,7 +4,7 @@
   "description": "vue可视化布局",
   "author": "jawei <1005945485@qq.com>",
   "private": true,
-  "homepage":"https://shiro641.github.io/WebMaster"
+  "homepage":"https://shiro641.github.io/WebMaster",
   "scripts": {
     "dev": "node build/dev-server.js",
     "start": "node build/dev-server.js",
