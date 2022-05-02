@@ -26,12 +26,10 @@ def return_picture(request):
     serializer = ImageSerializer
     BASE_DIR = Path(__file__).resolve().parent.parent.parent.parent
     path = os.path.join(BASE_DIR, 'frontend')
-    path = os.path.join(BASE_DIR, 'static')
+    path = os.path.join(path, 'static')
     path = os.path.join(path, 'assets')
-    for file in os.listdir(path):
-        file_path = os.path.join(path, file)
-
-        pic = open(file_path, 'rb')
+    file_path = os.path.join(path, 'test.jpg')
+    pic = open(file_path, 'rb')
     return HttpResponse(pic.read(), content_type='image/jpg')
 
 def getGode(request):
@@ -42,7 +40,7 @@ def getGode(request):
         BASE_DIR = Path(__file__).resolve().parent
         # fo = open('./preview.txt', 'r+')
         # fo.write(dict['xml'])
-        code, style, images = getLayout(dict['path'], dict['xml'])
+        code, style, images = getLayout(dict['path'], dict['xml'], dict['page_id'])
         return JsonResponse({"message": 'success', 'code': code, 'style': style, 'images': images})
 
 

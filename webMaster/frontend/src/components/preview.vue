@@ -1,18 +1,21 @@
 <template>
   <div class="preview" @dragover="dragOver" @drop="drop">
+    <!--<button @click="test">test</button>-->
     <!-- CODE视图 -->
     <mu-paper class="preview-head">
       <div class="bar">
-        <mu-sub-header style="display:inline; color: #ebebeb">{{showType}}</mu-sub-header>
-        <mu-icon-button style="float:right; color: #ebebeb" icon="delete" tooltip="清空" @click="empty" />
-        <mu-icon-button style="float:right; color: #ebebeb" icon=":iconfont icon-css" tooltip="编辑样式" @click="editStyle" />
-        <mu-icon-button style="float:right; color: #ebebeb" icon="code" tooltip="查看代码" @click="showCode" />
+        <mu-sub-header style="display:inline; color: #ebebeb">{{ showType }}</mu-sub-header>
+        <mu-icon-button style="float:right; color: #ebebeb" icon="delete" tooltip="清空" @click="empty"/>
+        <mu-icon-button style="float:right; color: #536dfe" icon="save_as" tooltip="保存" @click="nameDialog=true"/>
+        <mu-icon-button style="float:right; color: #ebebeb" icon=":iconfont icon-css" tooltip="编辑样式"
+                        @click="editStyle"/>
+        <mu-icon-button style="float:right; color: #ebebeb" icon="code" tooltip="查看代码" @click="showCode"/>
         <mu-icon-button v-if="$store.state.backupComponents.length" style="float:right;" icon="undo" tooltip="撤销"
-                        @click="undo" />
+                        @click="undo"/>
       </div>
       <div :class="{'content':true,'active':showType!=='预览'}">
         <pre @click="Edit" v-if="!isEdit" v-show="showType==='CODE'"
-             v-highlightjs="VueCode"><code class="html"></code></pre>
+             v-highlightjs="VueCode"><code style="height: 84vh" class="html"></code></pre>
         <textarea @contextmenu.prevent="exitEdit" class="VueCode" v-if="isEdit" v-model="VueCode"></textarea>
         <textarea v-show="showType==='编辑样式'" class="css-editor" placeholder=".vue-layout{ ... }"
                   v-model="css"></textarea>
@@ -31,24 +34,60 @@
     <mu-popover v-if="current.info" :trigger="popover.trigger" :open="popover.open" @close="popover.open=false">
       <mu-menu @change="selectedSlot">
         <label>
-          &nbsp;&nbsp;嵌套到{{current.info.name}}:
+          &nbsp;&nbsp;嵌套到{{ current.info.name }}:
         </label>
-        <mu-menu-item v-for="(val,key,index) in current.slots" :title="key" :value="key" :key="index" />
+        <mu-menu-item v-for="(val,key,index) in current.slots" :title="key" :value="key" :key="index"/>
       </mu-menu>
     </mu-popover>
     <!-- 右键菜单 -->
     <div ref="contextmenu" :style="contextmenu.style"></div>
     <mu-popover v-if="current.info" :anchorOrigin="{ 'vertical': 'top', 'horizontal': 'middle'}"
-                :targetOrigin="{ 'vertical': 'top', 'horizontal': 'left'}" :trigger="contextmenu.trigger" :open="contextmenu.open"
+                :targetOrigin="{ 'vertical': 'top', 'horizontal': 'left'}" :trigger="contextmenu.trigger"
+                :open="contextmenu.open"
                 @close="contextmenu.open = false">
-      <mu-content-block>{{this.current.info.name}}</mu-content-block>
-      <mu-divider />
+      <mu-content-block>{{ this.current.info.name }}</mu-content-block>
+      <mu-divider/>
       <mu-menu class="contextmenu" @itemClick="contextmenu.open=false" autoWidth>
-        <mu-menu-item title="复制" @click="copyComponent" />
-        <mu-menu-item title="粘贴" @click="pasteComponent" v-if="$store.state.copiedComponents.length" />
-        <mu-menu-item title="删除" @click="del" />
+        <mu-menu-item title="复制" @click="copyComponent"/>
+        <mu-menu-item title="粘贴" @click="pasteComponent" v-if="$store.state.copiedComponents.length"/>
+        <mu-menu-item title="删除" @click="del"/>
       </mu-menu>
     </mu-popover>
+    <el-dialog
+      title="保存"
+      :visible.sync="chooseDialog"
+      width="30%"
+      :modal-append-to-body='false'
+    >
+      <div style="display: flex; flex-direction:column; align-content:center; justify-content: center">
+        <span style="text-align: center; font-size: 16px">请选择代码导出方式</span>
+
+        <div style="display: flex; flex-direction: row; justify-content:center; margin-top:25px">
+          <el-button @click="downloadZIP">下载压缩包</el-button>
+          <el-button type="primary" @click="openNewWindow">导出网页链接</el-button>
+        </div>
+        <div style="display: flex; justify-content: center; margin-top: 20px; margin-bottom: -20px">
+          <div class="pageTip" @click="savePage">页面数量不够？点击此处添加新页面</div>
+        </div>
+      </div>
+    </el-dialog>
+    <el-dialog
+      title="命名"
+      :visible.sync="nameDialog"
+      width="30%"
+      :modal-append-to-body='false'
+    >
+      <div style="display: flex; flex-direction:column; align-content:center; justify-content: center">
+        <span style="text-align: center; font-size: 16px; margin-bottom: 20px">请输入当前页面名称</span>
+        <div style="justify-content: center">
+          <el-input v-model="currentName"></el-input>
+        </div>
+        <div style="display: flex; flex-direction: row; justify-content:center; margin-top:25px">
+          <el-button type="primary" @click="emitName()">确定</el-button>
+          <el-button @click="nameDialog=false">取消</el-button>
+        </div>
+      </div>
+    </el-dialog>
   </div>
 </template>
 <script>
@@ -56,6 +95,9 @@ import mount from './mount'
 // 代码高亮样式
 import '@/assets/css/highlight/default.css'
 import '@/assets/css/highlight/Atom-One-Light.css'
+import {getAssets} from "../api/api";
+import JSZip from 'jszip'
+import {saveAs} from 'file-saver';
 
 // scoped style插件 ，解决webkit不支持scoped的问题
 import scopedCss from 'scopedcss'
@@ -65,15 +107,18 @@ import {getTemplate} from './template'
 import mergeDeep from '@/utils/mergeDeep'
 //取随机id
 import guid from '@/utils/guid'
-import { Loading } from 'element-ui';
+import {Loading} from 'element-ui';
 
 export default {
   name: 'preview',
   data() {
     return {
+      currentName:'',
+      chooseDialog: false,
+      nameDialog: false,
       danWei: {
-        'width':'px',
-        'height':'px',
+        'width': 'px',
+        'height': 'px',
         'margin-top': 'px',
         'margin-left': 'px',
         'margin-right': 'px',
@@ -100,7 +145,7 @@ export default {
       previewMode: 'pc',
       isEdit: false,
       maxTagLength: 200,
-      isInitCode: false
+      isInitCode: true
     }
   },
   mounted() {
@@ -163,10 +208,20 @@ export default {
       this.removePlaceholder()
       e.preventDefault()
     }
+    this.$store.commit('setState', {
+      css: '', //用户编辑的自定义css字符串
+      currentComponent: {}, //预览视图的选中组件
+      components: [], //预览视图的组件树
+      backupComponents: [],
+      copiedComponents: []
+    })
     this.analyseCode()
     this.rewriteCss();
+    let page = {'name':this.currentName, 'components':this.components, 'css': this.css,
+      'filenames':this.filenames, 'vueCode': this.vueCode, cssStyle: this.cssStyle}
+    this.currentPage = page
     //读取云端数据
-    let id = this.$route.params.id
+    /*let id = this.$route.params.id
     let query = new this.$lean.Query('Share')
     if (id) {
       query.get(id).then(share => {
@@ -183,16 +238,76 @@ export default {
       //读取本地数据
       let store = JSON.parse(localStorage.store)
       this.$store.commit('setState', store)
-      //dom没有渲染完成 window._Vue为undefined，加个延迟
-      setTimeout(() => {
-        this.mount()
-        this.finish = true
-      }, 0)
-    }
-
+    }*/
   },
   methods: {
-    getVal () {
+    click(){
+      console.log('click!')
+    },
+    emitName(){
+      let pages = this.pages
+      pages.push(this.currentPage)
+      this.pages = pages
+      this.chooseDialog=true
+      this.nameDialog=false
+    },
+    savePage(){
+      // window.reload()
+      this.isFinishLabel = false
+
+      this.refresh = false
+      this.refresh = true
+    },
+    openNewWindow() {
+      this.chooseDialog = false
+      const routeData = this.$router.resolve({
+        path: '/share',
+      });
+      window.open(routeData.href, '_blank');
+    },
+    test() {
+      console.log('components', this.components)
+    },
+    downloadZIP() {
+      this.chooseDialog = false
+      // const images = this.filenames
+      const images = this.filenames
+      let base64s = {}
+      images.forEach(filename => {
+        console.log('name is', filename)
+        getAssets(filename).then(
+          res => {
+            const base64data = btoa(new Uint8Array(res.data).reduce((data, byte) => data + String.fromCharCode(byte), ''))
+            base64s[filename] = base64data
+            // base64s.push(base64data)
+          }
+        )
+      })
+      setTimeout(() => {
+        console.log('base64s', base64s)
+        let zip = new JSZip();
+        let views = zip.folder('views')
+        let code = ''
+        // let state = this.$store.state
+        // let test = this.components
+        // console.log('test is', test)
+        code += this.VueCode
+        code += '\n<style scoped>\n'
+        code += this.css
+        code += '\n</style>'
+        views.file('Home.vue', code)
+        let assets = views.folder('static').folder('assets')
+        for (const key in base64s) {
+          assets.file(key + '.png', base64s[key], {base64: true})
+        }
+        zip.generateAsync({type: "blob"})
+          .then(function (content) {
+            // see FileSaver.js
+            saveAs(content, "example.zip");
+          });
+      }, 1000)
+    },
+    getVal() {
       return this.finish
     },
     Edit() {
@@ -266,6 +381,7 @@ export default {
           nestComponent.attributes.slot = slot
           nestComponent.parentId = components[index].info.id
           nestComponent.style = {}
+          nestComponent.func = {'type':'', 'param':''}
           //getTemplate中#可能#修改了components，所以重新获取
           components = JSON.parse(JSON.stringify(this.components))
           index = components.findIndex(item => item.info.id === this.current.info.id)
@@ -295,6 +411,7 @@ export default {
           components[index] = mergeDeep(components[index], component)
           //更新模板
           this.components = components
+          console.log('this com', this.$store.state)
           this.mount()
         })
 
@@ -380,11 +497,12 @@ export default {
       let topComponent = this.getParentComponent(parent)
       topComponent = getTemplate(topComponent.info, topComponent.attributes, topComponent.slots)
       let topIndex = components.findIndex(c => c.info.id === topComponent.info.id)
-
-      components[topIndex] = topComponent
-      components[index] = mergeDeep(components[index], component)
-      //更新模板
-      this.components = components
+      /*if(topIndex!==index) {
+        components[topIndex] = topComponent
+        components[index] = mergeDeep(components[index], component)
+        //更新模板
+        this.components = components
+      }*/
       this.mount_()
 
     },
@@ -430,7 +548,7 @@ export default {
         console.log('Error:', stack)
       } else {
         this.createNewComponent(stack[0]['info'])
-        let components = JSON.parse(JSON.stringify(this.$store.state.components))
+        let components = this.$store.state.components
         let index = components.findIndex(item => item.info.id === stack[0]['info']['id'])
         if (stack[0].hasOwnProperty('class')) {
           let temp = {}
@@ -438,6 +556,15 @@ export default {
           temp['class'] = attr
           attr = temp
           this.updateAttribute(attr, components[index])
+
+          let cssIndex = this.style.findIndex(item => item['name'] === stack[0]['class']['value'])
+          if (cssIndex !== -1) {
+            this.components[index]['style'] = this.style[cssIndex].content
+          } else {
+            this.components[index]['style'] = {}
+          }
+          this.components[index].func = {'type':'', 'param':''}
+
           components = JSON.parse(JSON.stringify(this.components))
         }
         if (stack[0]['info']['name'] == 'Img') {
@@ -496,10 +623,10 @@ export default {
           let cssIndex = this.style.findIndex(item => item['name'] === son['class']['value'])
           if (cssIndex !== -1) {
             this.components[index]['style'] = this.style[cssIndex].content
-          }
-          else{
+          } else {
             this.components[index]['style'] = {}
           }
+          this.components[index].func = {'type':'', 'param':''}
           // this.components = components
           components = JSON.parse(JSON.stringify(this.components))
         }
@@ -538,7 +665,7 @@ export default {
       // console.log('str is', str)
       if (str.search(/\s*div(\w|\s|=|")*/) === 0) {
         let info = {}
-        info['ui'] = 'Common'
+        info['ui'] = 'Component'
         info['name'] = 'Div'
         info['id'] = guid()
         tag['info'] = info
@@ -554,7 +681,7 @@ export default {
         });
       } else if (str.search(/\s*span(\w|\s|=|")*/) === 0) {
         let info = {}
-        info['ui'] = 'Common'
+        info['ui'] = 'Component'
         info['name'] = 'Text'
         info['id'] = guid()
         tag['info'] = info
@@ -570,7 +697,7 @@ export default {
         });
       } else if (str.search(/\s*img(\w|\s|=|")*/) === 0) {
         let info = {}
-        info['ui'] = 'Common'
+        info['ui'] = 'Component'
         info['name'] = 'Img'
         info['id'] = guid()
         tag['info'] = info
@@ -595,7 +722,7 @@ export default {
         });
       } else if (str.search(/\s*list(\w|\s|=|")*/) === 0) {
         let info = {}
-        info['ui'] = 'Common'
+        info['ui'] = 'Component'
         info['name'] = 'list'
         info['id'] = guid()
         tag['info'] = info
@@ -629,7 +756,7 @@ export default {
         });
       } else if (str.search(/\s*SearchBar(\w|\s|=|")*/) === 0) {
         let info = {}
-        info['ui'] = 'Common'
+        info['ui'] = 'Component'
         info['name'] = 'SearchBar'
         info['id'] = guid()
         tag['info'] = info
@@ -663,7 +790,7 @@ export default {
         });
       } else if (str.search(/\s*button(\w|\s|=|")*/) === 0) {
         let info = {}
-        info['ui'] = 'Common'
+        info['ui'] = 'Component'
         info['name'] = 'button'
         info['id'] = guid()
         tag['info'] = info
@@ -677,9 +804,9 @@ export default {
           class_['value'] = arguments[1]
           tag['class'] = class_
         });
-      }else if (str.search(/\s*el-link(\w|\s|=|")*/) === 0) {
+      } else if (str.search(/\s*el-link(\w|\s|=|")*/) === 0) {
         let info = {}
-        info['ui'] = 'Common'
+        info['ui'] = 'Component'
         info['name'] = 'link'
         info['id'] = guid()
         tag['info'] = info
@@ -728,7 +855,7 @@ export default {
 
     },
     updateAttribute(attr, current) { //属性值输入事件
-      let components = JSON.parse(JSON.stringify(this.$store.state.components))
+      let components = this.$store.state.components
       let index = components.findIndex(component => component.info.id === current.info.id)
       let info = current.info
       attr = mergeDeep(current.attributes, attr)
@@ -740,7 +867,7 @@ export default {
         attributes = component.attributes
 
       //getTemplate中可能修改了components，所以重新获取
-      components = JSON.parse(JSON.stringify(this.$store.state.components))
+      components = this.$store.state.components
       index = components.findIndex(component => component.info.id === current.info.id)
 
       Object.assign(components[index]['attributes'], attributes) //更新从getTemplate获取到的最新属性
@@ -799,7 +926,8 @@ export default {
     },
     mount() {
       //挂载及更新视图中组件的位置信息
-      let components = JSON.parse(JSON.stringify(this.$store.state.components))
+      // let components = JSON.parse(JSON.stringify(this.$store.state.components))
+      let components = this.$store.state.components
       console.log('components:', components)
       components.filter(component => !component.parentId).forEach(component => {
         mount(component.info.id, component).then(vm => {
@@ -823,7 +951,7 @@ export default {
     },
     mount_() {
       //挂载及更新视图中组件的位置信息
-      let components = JSON.parse(JSON.stringify(this.$store.state.components))
+      let components = this.$store.state.components
       // console.log('components:', components)
       components.filter(component => !component.parentId).forEach(component => {
         mount(component.info.id, component).then(vm => {
@@ -899,7 +1027,7 @@ export default {
       return code
     },
     getParentComponent(component) {
-      let components = JSON.parse(JSON.stringify(this.$store.state.components))
+      let components = this.$store.state.components
       if (component.parentId) {
         return this.getParentComponent(components.find(c => c.info.id === component.parentId))
       } else {
@@ -928,7 +1056,7 @@ export default {
       if (!this.css)
         return
       //添加用户编辑的css效果到预览视图
-      console.log('css is', this.css)
+      // console.log('css is', this.css)
       let style = document.getElementById('custom-layout')
       if (!style) {
         style = document.createElement('style')
@@ -1054,9 +1182,9 @@ export default {
       this.fresh()
     },
     rewriteCss() {
-      let components = JSON.parse(JSON.stringify(this.$store.state.components))
+      let components = this.$store.state.components
       this.css = ''
-      for (let i = 1; i < components.length; i++) {
+      for (let i = 0; i < components.length; i++) {
         let component = components[i]
         this.css += '.'
         this.css += component.attributes.class.value
@@ -1074,7 +1202,57 @@ export default {
     },
   },
   computed: {
-    VueCode:{
+    currentPage:{
+      get() {
+        return this.$store.state.currentPage
+      },
+      set(page) {
+        return this.$store.commit('setState', {
+          currentPage: page
+        })
+      }
+    },
+    refresh:{
+      get() {
+        return this.$store.state.refresh
+      },
+      set(refresh) {
+        this.$store.commit('setState', {
+          refresh: refresh
+        })
+      }
+    },
+    isFinishLabel:{
+      get() {
+        return this.$store.state.isFinishLabel
+      },
+      set(isFinishLabel) {
+        this.$store.commit('setState', {
+          isFinishLabel: isFinishLabel
+        })
+      }
+    },
+    pages: {
+      get() {
+        return this.$store.state.pages
+      },
+      set(pages) {
+        this.$store.commit('setState', {
+          pages: pages
+        })
+      }
+    },
+    filenames: {
+      get() {
+        return this.$store.state.filenames
+      },
+      set(names) {
+        this.$store.commit('setState', {
+          filenames: names
+        })
+      }
+    },
+    VueCode: {
       get() {
         return this.$store.state.VueCode
       },
@@ -1133,7 +1311,24 @@ export default {
   watch: {
     css(val, oldVal) {
       this.addUserStyle()
-    }
+    },
+    currentPage: {
+      deep: true,
+      handler(val, oldVal) {
+        this.$store.commit('setState', {
+          css: '', //用户编辑的自定义css字符串
+          currentComponent: {}, //预览视图的选中组件
+          components: [], //预览视图的组件树
+          backupComponents: [],
+          copiedComponents: []
+        })
+        this.components = this.currentPage['components']
+        this.css = this.currentPage['css']
+        this.filenames = this.currentPage['filenames']
+        // this.mount_()
+        this.fresh()
+      }
+    },
   }
 }
 
@@ -1150,16 +1345,16 @@ export default {
 .preview-area {
   overflow: auto;
   position: relative;
-  height: inherit;
+  height: 85vh;
   z-index: 0;
   padding-bottom: 100px;
 }
 
 .preview-tip {
   text-align: center;
-  color: rgb(64,64,64);
+  color: rgb(64, 64, 64);
   position: absolute;
-  top: 40%;
+  top: 50%;
   z-index: -1;
 }
 
@@ -1169,10 +1364,12 @@ export default {
   z-index: 2;
 
   .bar {
-    background-color: rgb(64,64,64);
+    background-color: rgb(64, 64, 64);
+    height: 100%;
   }
 
   .content {
+    width: 100%;
     height: 0;
     overflow: auto;
     transition: all .2s;
@@ -1189,7 +1386,7 @@ export default {
   }
 
   .content.active {
-    height: 95vh;
+    height: 88vh;
   }
 }
 
@@ -1197,7 +1394,7 @@ export default {
   border: none;
   background: none;
   width: 100%;
-  height: 100%;
+  height: 87vh;
   outline: none;
   overflow: auto;
 }
@@ -1213,7 +1410,7 @@ export default {
   box-shadow: 0 14px 45px rgba(0, 0, 0, .247059), 0 10px 18px rgba(0, 0, 0, .219608);
 }
 
-.contextmenu>div {
+.contextmenu > div {
   width: 100%;
 }
 
@@ -1233,5 +1430,13 @@ export default {
 .VueCode:focus {
   border-color: cornflowerblue;
 }
-
+.pageTip {
+  color: #757575;
+  font-size: 10px;
+  cursor: pointer;
+}
+.pageTip:hover{
+  text-decoration:underline;
+  color: #03a9f4;
+}
 </style>

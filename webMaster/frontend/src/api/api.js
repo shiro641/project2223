@@ -8,7 +8,7 @@ export const t = () => {
     }
   )
 }
-export const postAndGetCode = (xml, pic) => {
+export const postAndGetCode = (xml, pic, id) => {
   return Axios(
     {
       method: 'post',
@@ -16,15 +16,19 @@ export const postAndGetCode = (xml, pic) => {
       data: {
         'xml': xml,
         'path':pic,
+        'page_id':id
       },
     }
   )
 }
-export const getPic = () => {
+export const getAssets = (filename) => {
   return Axios(
     {
-      method: 'get',
-      url: 'http://localhost:8000/api/get_picture',
+      method:'post',
+      url: 'http://localhost:8000/api/get_assets',
+      data:{
+        'filename':filename
+      },
       responseType: 'arraybuffer',
     }
   )

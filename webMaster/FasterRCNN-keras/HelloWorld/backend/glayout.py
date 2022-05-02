@@ -31,7 +31,7 @@ def get_dominant_colors(path):
 
 
 def getRect(str):
-    global resize
+    global resize, maxWidth, maxHeight
     # filename = 'Website Screenshots.v1-raw.voc/train/4shared_com_png.rf.7da0b596a12c1c1885dbdbc808d9c846.xml'
     strlist = str.split()
     print(strlist)
@@ -57,21 +57,29 @@ def getRect(str):
                     end = line.find('</xmin>')
                     nub = line[start:end]
                     obj['x1'] = int(eval(nub) * resize)
+                    if obj['x1'] < 0:
+                        obj['x1'] = 0
                 elif line.find('<xmax>') != -1:
                     start = line.find('<xmax>') + 6
                     end = line.find('</xmax>')
                     nub = line[start:end]
                     obj['x2'] = int(eval(nub) * resize)
+                    if obj['x2'] > maxWidth:
+                        maxWidth = obj['x2']
                 elif line.find('<ymin>') != -1:
                     start = line.find('<ymin>') + 6
                     end = line.find('</ymin>')
                     nub = line[start:end]
                     obj['y1'] = int(eval(nub) * resize)
+                    if obj['y1'] < 0:
+                        obj['y2'] = 0
                 elif line.find('<ymax>') != -1:
                     start = line.find('<ymax>') + 6
                     end = line.find('</ymax>')
                     nub = line[start:end]
                     obj['y2'] = int(eval(nub) * resize)
+                    if obj['y2'] > maxHeight:
+                        maxHeight = obj['y2']
                 i += 1
             res.append(obj)
         i += 1
@@ -217,7 +225,7 @@ def drawRect(path, rects):
     cv2.imwrite('out.jpg', image)
 
 
-def generateCode(web, photoPath, currentDeep):
+def generateCode(web, photoPath, currentDeep, page_id):
     global diviedTimes, id, style, images
     webCode = []
     for i in range(0, len(web)):
@@ -226,7 +234,7 @@ def generateCode(web, photoPath, currentDeep):
         divCode = []
         for rect_with_property in div['flex']:
             if currentDeep != diviedTimes:
-                eleCode = generateCode(rect_with_property['flex'], photoPath, currentDeep + 1)
+                eleCode = generateCode(rect_with_property['flex'], photoPath, currentDeep + 1, page_id)
                 divCode.append(eleCode)
             # rect_with_property 是一个个的小框框
             else:
@@ -244,9 +252,10 @@ def generateCode(web, photoPath, currentDeep):
                     if rect['class'] == 'image':
                         name = 'image' + str(id)
                         images.append(name)
-                        eleCode[name] = '<img class="{0}" src="./static/assets/{1}.png"></img>'.format(name, name)
-
-                        cutPhoto(photoPath, r'..\..\frontend\static\assets' + '\\' + name + '.png', y1, y2, x1, x2)
+                        eleCode[name] = '<img class="{0}" src="./static/assets/{1}/{2}.png"></img>'.format(name, page_id, name)
+                        if not os.path.exists(r'..\..\frontend\static\assets' + '\\' + str(page_id)):
+                            os.mkdir(r'..\..\frontend\static\assets' + '\\' + str(page_id))
+                        cutPhoto(photoPath, r'..\..\frontend\static\assets' + '\\' + str(page_id) + '\\' + name + '.png', y1, y2, x1, x2)
 
                         ComponentStyle = {'name': name,
                                           'content': {'width': x2 - x1, 'height': y2 - y1, 'margin-left': x1 - left,
@@ -423,15 +432,19 @@ def writeCode(code, web, fo, currentDeep, lower_ref, left_ref):
         lower_ref = higher
 
 
-def getLayout(path, xml):
-    global resize, diviedTimes, id, style, images
+def getLayout(path, xml, page_id):
+    global resize, diviedTimes, id, style, images, maxWidth, maxHeight
     resize = 1
+    maxWidth = 0
+    maxHeight = 0
     rects = getRect(xml)
+
     original_path = os.path.join(r'..\..\frontend\static\assets\inputimage', path)
     image = cv2.imread(original_path)
     image = cv2.resize(image, None, fx=resize, fy=resize)
     save_path = os.path.join(r'..\..\frontend\static\assets\inputimage', 'resized.png')
     cv2.imwrite(save_path, image)
+
     drawRect(save_path, rects)
     diviedTimes = 1
     id = 0
@@ -445,7 +458,12 @@ def getLayout(path, xml):
             print(element)
     ############
     style = []
-    code = generateCode(web, save_path, 0)
+    code = generateCode(web, save_path, 0, page_id)
+
+    ComponentStyle = {'name': 'root',
+                      'content': {'width': maxWidth, 'height': maxHeight, 'margin-left': 0,
+                                  'margin-top': 0}}
+    style.append(ComponentStyle)
     # fo = open('out.txt', "w")
     fo = ['']
     fo[0] += '<template>\n<div class="root">\n'
@@ -468,5 +486,5 @@ def getLayout(path, xml):
 
 
 if __name__ == '__main__':
-    getLayout('abc', 'efg')
+    getLayout('abc', 'efg', 0)
     pass

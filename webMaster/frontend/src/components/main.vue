@@ -1,5 +1,6 @@
 <template>
-  <div id="app">
+  <div id="app" >
+    <button @click="test">test</button>
     <mu-appbar>
       <div class="title">
         WebMaster
@@ -34,14 +35,16 @@
       </div>
     </div>
     <mu-row v-if="!isFinishLabel">
-      <mu-col style="width: 15%; background-color: #333333; height: 600px">
+      <mu-col style="width: 15%; background-color: #333333; height: 92vh">
         <div style="display: flex; flex-direction: column; height: 15%">
           <div
-            style="display: flex; flex-direction: row; justify-content: space-around; margin-top: 5px; margin-bottom: 5px">
+            style="display: flex; flex-direction: row; justify-content: space-around; margin-top: 5px">
             <div class="edit_button" @click="edit">编辑</div>
             <div id="export" class="finish_button" @click="finish">完成</div>
           </div>
-          <div class="result-tittle" style="">标注结果</div>
+          <div style="display: flex; justify-content: center">
+            <div class="result-tittle" style="">标注结果</div>
+          </div>
         </div>
         <div style="height: 85%">
           <vue-scroll :ops="ops">
@@ -92,7 +95,7 @@
               <el-link :underline="false" class="upload_pic" size="small">点击上传图片</el-link>
             </el-upload>
           </mu-col>
-          <mu-col style="width: 15%; min-height: 600px">
+          <mu-col style="width: 15%; height: 92vh">
             <div class="controlPanel">
               <div id="step2" style="margin-top: 18px; margin-bottom: 18px; color: #3c8cfd; font-weight: bold">类型</div>
               <div v-for="item in shapes" :key="item.val"
@@ -198,11 +201,12 @@ export default {
       id: 0,
       // '../../../static/assets/inputimage/tianmao.png'
       pic: '',
+      page_id:1,
       PicName: '',
-      havePicture: false,
       loading: true,
       fabricObj: null,
       fabricJson: {},
+      havePicture: false,
       drawingObject: null, //绘制对象
       moveCount: 1,
       mouseFrom: {},
@@ -288,7 +292,7 @@ export default {
       selectField: {
         value: '属性'
       },
-      isFinishLabel: false,
+      // isFinishLabel: true,
       xml: ''
     }
   },
@@ -306,6 +310,41 @@ export default {
     });*/
   },
   computed: {
+    currentPage:{
+      get() {
+        return this.$store.state.currentPage
+      },
+    },
+    refresh:{
+      get(){
+        return this.$store.state.refresh
+      }
+    },
+    pages:{
+      get(){
+        return this.$store.state.pages
+      }
+    },
+    isFinishLabel:{
+      get() {
+        return this.$store.state.isFinishLabel
+      },
+      set(isFinishLabel) {
+        this.$store.commit('setState', {
+          isFinishLabel: isFinishLabel
+        })
+      }
+    },
+    filenames:{
+      get() {
+        return this.$store.state.filenames
+      },
+      set(names) {
+        this.$store.commit('setState', {
+          filenames: names
+        })
+      }
+    },
     current: { //预览视图中选中的组件
       get() {
         return this.$store.state.currentComponent
@@ -344,22 +383,24 @@ export default {
         this.share.experience = ''
       }
     },
+    refresh:{
+      deep: true,
+      handler(val, oldVal) {
+        // window.reload()
+        this.havePicture = false
+        this.labelResult = []
+      }
+    },
     shape(val) {
       // this.fabricObj.isDrawingMode = true;
     }
   },
   methods: {
-    guide() {
-      introJs().setOptions({
-        prevLabel: "上一步",
-        nextLabel: "下一步",
-        skipLabel: "跳过",
-        doneLabel: "结束"
-      }).oncomplete(function () {
-        //点击跳过按钮后执行的事件
-      }).onexit(function () {
-        //点击结束按钮后， 执行的事件
-      }).start();
+    test(){
+      console.log('pages', this.pages)
+      // console.log('havepicture', this.havePicture)
+      console.log('components', this.$store.state)
+      console.log('current', this.currentPage)
     },
     finish() {
       const loading = this.$loading({
@@ -377,10 +418,11 @@ export default {
       } else {
         scale = ih / this.imgH
       }
-      scale = Math.floor(scale * 100) / 100
+      scale = Math.ceil(scale * 100) / 100
       let objs = this.fabricObj.getObjects()
       let data = ''
       data += `<scale>${scale}</scale>\n`
+      // data += `<scale>1</scale>\n`
       for (let i = 1; i < objs.length; i++) {
         let item = objs[i]
         // console.log(item)
@@ -389,13 +431,13 @@ export default {
         // console.log('postion', item.position)
         data += `<name>${item.shape}</name>`
         data += '\n'
-        data += `<xmin>${Math.round(item.position[0] / this.scale)}</xmin>`
+        data += `<xmin>${Math.round(item.left / this.scale)}</xmin>`
         data += '\n'
-        data += `<ymin>${Math.round(item.position[1] / this.scale)}</ymin>`
+        data += `<ymin>${Math.round(item.top / this.scale)}</ymin>`
         data += '\n'
-        data += `<xmax>${Math.round(item.position[2] / this.scale)}</xmax>`
+        data += `<xmax>${Math.round((item.left+item.width*item.scaleX) / this.scale)}</xmax>`
         data += '\n'
-        data += `<ymax>${Math.round(item.position[3] / this.scale)}</ymax>`
+        data += `<ymax>${Math.round((item.top+item.height*item.scaleY) / this.scale)}</ymax>`
         data += '\n'
         data += '</object>'
         data += '\n'
@@ -403,12 +445,16 @@ export default {
       // let content = JSON.stringify(data);
       // let blob = new Blob([content], {type: "text/plain;charset=utf-8"});
       // saveAs(blob, "preview.txt");
-      console.log('data is', data)
-      postAndGetCode(data, this.PicName).then(
+      //console.log('data is', data)
+      this.page_id += 1
+      postAndGetCode(data, this.PicName, this.page_id).then(
         res => {
           // console.log('res is', res)
           // console.log('cssArray is', res['data']['style'])
           // console.log('code is', res['data']['code'])
+          this.$store.commit('setState', {
+            filenames: res['data']['images']
+          })
           let code = res['data']['code']
           let templateStart = 0
           let templateEnd = code.search('</template>') + 11
@@ -416,6 +462,7 @@ export default {
           let cssEnd = code.search('</style>')
           let VueCode = code.substring(templateStart, templateEnd)
           // console.log('vuecode is', VueCode)
+          // let test = this.$store.state
           this.$store.commit('setState', {
             VueCode: VueCode
           })
@@ -432,7 +479,7 @@ export default {
       setTimeout(()=>{
         loading.close()
         this.$tours['pre'].start()
-      },5000)
+      },2000)
       // this.$refs.preview.Edit();
       // this.$refs.preview.exitEdit();
     },
@@ -445,18 +492,6 @@ export default {
       // this.$refs.preview.fresh()
       this.$refs.preview.rightClick(e)
 
-    },
-    openUiDocument() {
-      switch (this.current.info.ui) {
-        case 'Muse-UI':
-          return window.open('http://www.muse-ui.org/#/' + this.current.info.name.replace(' ', ''))
-        case 'Mint-UI':
-          return window.open('https://mint-ui.github.io/docs/#/zh-cn/' + this.current.info.name.replace(' ', '-'))
-        case 'iView-UI':
-          return window.open('https://www.iviewui.com/components/' + this.current.info.name)
-        default:
-          return this.$toast('无文档页')
-      }
     },
     setSelectEffect(val) {
       let head = document.head
@@ -627,7 +662,7 @@ export default {
         },
         'object:modified': (e) => {
           //修改对象
-          console.log('object:modified')
+          console.log('object:modified', this.labelResult)
           this.labelResult.forEach(item => {
             if (item.id === e.target.id) {
               item = e.target
@@ -892,14 +927,16 @@ export default {
 }
 
 .client-height {
-  height: 100vh;
+  height: 92vh;
   overflow: auto;
 }
 
 .attribute_st {
 
 }
-
+/deep/.mu-appbar{
+  height: 8vh;
+}
 .attributes {
   .client-height;
   background-color: #333333;
@@ -986,8 +1023,9 @@ export default {
 }
 
 .upload_pic {
+  margin-left: -10px;
   margin-top: -60px;
-  font-size: 26px;
+  font-size: 19px;
   letter-spacing: 3px
 }
 
@@ -1031,9 +1069,11 @@ export default {
 
 .result-tittle {
   text-align: center;
-  width: 100%;
+  width: 70%;
   color: #3f51b5;
   font-weight: bold;
+  padding-bottom: 10px;
+  border-bottom: solid 1px #757575;
 }
 
 .edit_button {

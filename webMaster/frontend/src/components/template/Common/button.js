@@ -35,7 +35,7 @@ var handle = function(_attr, _slots) {
     //字符串模板操作
     let text = JSON.parse(JSON.stringify(attributes)).text.value || '按钮'
     let stringAttr = getStringTypeAttr(attributes)
-    let template = `<button ${stringAttr}>${text}</button>`
+    let template = `<button @click="" ${stringAttr}>${text}</button>`
 
     template = template.replace(/text=".*?"/g, '')//模板字符串中删除text属性
 

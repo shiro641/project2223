@@ -2,18 +2,20 @@
   <section>
     <mu-content-block style="display:flex;">
       <mu-select-field :value="activeUI" @change="handleTabChange" autoWidth>
-        <mu-menu-item title="通用" value="Common">
+        <mu-menu-item title="组件" value="Component">
         </mu-menu-item>
-        <mu-menu-item title="Muse-UI" value="Muse-UI">
+        <mu-menu-item title="页面" value="page">
+        </mu-menu-item>
+        <!--<mu-menu-item title="Muse-UI" value="Muse-UI">
         </mu-menu-item>
         <mu-menu-item title="Mint-UI" value="Mint-UI">
         </mu-menu-item>
         <mu-menu-item title="iView-UI" value="iView-UI">
         </mu-menu-item>
         <mu-menu-item title="Element-UI" value="Element-UI">
-        </mu-menu-item>
+        </mu-menu-item>-->
       </mu-select-field>
-      <mu-sub-header style="white-space:nowrap; color: #53d0fe">- 组件</mu-sub-header>
+      <mu-sub-header style="white-space:nowrap; color: #53d0fe">- {{activeUI}}</mu-sub-header>
     </mu-content-block>
     <div v-if="activeUI === 'Muse-UI'">
       <ul class="components-list">
@@ -226,7 +228,7 @@
         -->
       </ul>
     </div>
-    <div v-if="activeUI==='Common'">
+    <div v-if="activeUI==='Component'">
       <ul class="components-list">
         <li draggable="true" @dragstart="dragStart" data-name="Text">
           <mu-icon value="text_fields" style="vertical-align:middle;"/>
@@ -262,6 +264,12 @@
         </li>
       </ul>
     </div>
+    <div v-if="activeUI === 'page'">
+      <div @click="selectPage(key)" class="pageItem" v-for="(page, key) in pages" :key="key">
+        <div style="margin-left: 20px">{{page['name']}}</div>
+        <el-divider class="componentDivider"></el-divider>
+      </div>
+    </div>
   </section>
 </template>
 <script>
@@ -278,6 +286,10 @@ export default {
 
   },
   methods: {
+    selectPage(key) {
+      // console.log(this.pages[key])
+      this.currentPage = this.pages[key]
+    },
     handleTabChange(val) {
       this.activeUI = val
     },
@@ -303,6 +315,21 @@ export default {
     }
   },
   computed: {
+    currentPage:{
+      get() {
+        return this.$store.state.currentPage
+      },
+      set(currentPage) {
+        this.$store.commit('setState', {
+          currentPage: currentPage
+        })
+      }
+    },
+    pages: {
+      get() {
+        return this.$store.state.pages
+      }
+    },
     activeUI: {
       get() {
         return this.$store.state.activeUI
@@ -385,5 +412,16 @@ export default {
     top: 6px;
     color: #3c8cfd;
   }
+}
+/deep/ .componentDivider{
+  background-color: #616161;
+  width: 150px;
+  margin-left: 20px;
+  margin-top: 10px;
+  margin-bottom: 10px;
+}
+.pageItem{
+  height: 30px;
+  cursor: pointer;
 }
 </style>

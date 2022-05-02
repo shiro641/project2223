@@ -15,7 +15,7 @@ var getTemplate = function(info, _attr = {}, _slots = {}) {
         case 'iView-UI':
             component = iViewUI[info.name](_attr, _slots, info)
             break
-        case 'Common':
+        case 'Component':
             component = Common[info.name](_attr, _slots, info)
             break
     }

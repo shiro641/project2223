@@ -2,26 +2,49 @@
   <mu-content-block>
     <div v-if="current.attributes" style="display: flex;flex-direction: column;">
       <subAttribute :attributes="current.attributes" style="margin-left:-10px;" @update="updateAttribute"/>
+      <div>
+        <el-collapse>
+          <el-collapse-item title="script">
+            <el-select v-model="eventType">
+              <el-option value="router" label="路由跳转">
+              </el-option>
+              <el-option value="backend" label="后端交互">
+              </el-option>
+            </el-select>
+            <el-select v-model="value[currentPage.name]" v-show="eventType==='router'" @change="selectPage">
+              <el-option v-for="(page, key) in this.getPageName()"
+                         :key="key"
+                         :label="page['label']"
+                         :value="page['value']">
+              </el-option>
+            </el-select>
+          </el-collapse-item>
+        </el-collapse>
+      </div>
       <div v-if="current.attributes.class.value">
         <el-collapse>
           <el-collapse-item title="base">
             <div style="display: flex; flex-direction: column; margin-bottom: 15px; background-color: transparent">
               <div style="color: #757575; margin-bottom: 5px; margin-top: 5px">color:</div>
-              <el-color-picker size="small" :value="getDefaultColor('color')" @change="handleChangeColor" class="selectColor"></el-color-picker>
+              <el-color-picker size="small" :value="getDefaultValue('color')" @change="handleChangeColor"
+                               class="selectColor"></el-color-picker>
             </div>
             <div style="display: flex; flex-direction: column; margin-bottom: 15px">
               <div style="color: #757575; margin-bottom: 5px">background-color:</div>
-              <el-color-picker size="small" :value="getDefaultColor('background-color')" @change="handleChangeBGColor" class="selectColor"></el-color-picker>
+              <el-color-picker size="small" :value="getDefaultValue('background-color')" @change="handleChangeBGColor"
+                               class="selectColor"></el-color-picker>
             </div>
           </el-collapse-item>
           <el-collapse-item title="border">
             <div style="display: flex; flex-direction: column; margin-bottom: 15px">
               <div style="color: #757575; margin-bottom: 5px; margin-top: 5px">border-color:</div>
-              <el-color-picker size="small" :value="getDefaultColor('border-color')" @change="handleChangeBDColor" class="selectColor"></el-color-picker>
+              <el-color-picker size="small" :value="getDefaultValue('border-color')" @change="handleChangeBDColor"
+                               class="selectColor"></el-color-picker>
             </div>
             <div style="display: flex; flex-direction: column; margin-bottom: 5px">
               <div style="color: #757575; margin-bottom: 0px">border-radius:</div>
-              <el-slider :step="0.5" :max="20" style="width: 120px; margin-left: 10px"  v-model="borderRadius" @input="handleChangeBDRadius" ></el-slider>
+              <el-slider :step="0.5" :max="20" style="width: 120px; margin-left: 10px" v-model="borderRadius"
+                         @input="handleChangeBDRadius"></el-slider>
             </div>
           </el-collapse-item>
         </el-collapse>
@@ -42,9 +65,11 @@ export default {
   name: 'attributes',
   data() {
     return {
+      eventType: '',
+      value: {'taobao1':'','taobao2':'','taobao3':''},
       danWei: {
-        'width':'px',
-        'height':'px',
+        'width': 'px',
+        'height': 'px',
         'margin-top': 'px',
         'margin-left': 'px',
         'margin-right': 'px',
@@ -65,6 +90,26 @@ export default {
         return this.$store.state.currentComponent
       }
     },
+    currentPage: {
+      get() {
+        return this.$store.state.currentPage
+      },
+      set(page) {
+        this.$store.commit('setState', {
+          currentPage: page
+        })
+      }
+    },
+    pages: {
+      get() {
+        return this.$store.state.pages
+      },
+      set(pages) {
+        this.$store.commit('setState', {
+          pages: pages
+        })
+      }
+    },
     css: {
       get() {
         return this.$store.state.css
@@ -80,11 +125,32 @@ export default {
     this.hasCurrent()
   },
   methods: {
-    getDefaultColor(name){
-      if(this.current.style.hasOwnProperty(name)){
-        return this.current.style[name]
+    selectPage(key) {
+      this.current.func = {'type': 'router', 'param':key}
+
+      let components = JSON.parse(JSON.stringify(this.$store.state.components))
+      let index = components.findIndex(item => item.info.id === this.current['info']['id'])
+      components[index] = this.current
+      this.$store.commit('setState', {
+        components: components
+      })
+      this.currentPage.components = components
+      let currentPage = this.pages.findIndex(page => page.name == this.currentPage.name)
+      this.pages[currentPage] = this.currentPage
+    },
+    getPageName() {
+      let res = []
+      for (let i = 0; i < this.pages.length; i++) {
+        const page = this.pages[i]
+        let dic = {'value': page.name, 'label': page.name}
+        res.push(dic)
       }
-      else
+      return res
+    },
+    getDefaultValue(name) {
+      if (this.current.style.hasOwnProperty(name)) {
+        return this.current.style[name]
+      } else
         return ''
     },
     hasCurrent() {
@@ -103,26 +169,43 @@ export default {
       this.rewritePartCss()
     },
     rewritePartCss() {
-      let startPos = this.css.search(this.current.attributes.class.value)-1
+      let startPos = this.css.search(new RegExp('^' + this.current.attributes.class.value + '$')) - 1
+      let into = ''
+      if (startPos === -2) {
+        into += '.'
+        into += this.current.attributes.class.value
+        into += '{\n'
+        for (let key in this.current.style) {
+          into += key
+          into += ':'
+          into += this.current.style[key]
+          if (this.danWei.hasOwnProperty(key)) {
+            into += this.danWei[key]
+          }
+          into += ';\n'
+        }
+        into += '}\n'
+        this.css += into
+        return
+      }
       let temp = this.css.substring(startPos)
       let css1 = this.css.substring(0, startPos)
-      let endPos = temp.search('}')+1+startPos
+      let endPos = temp.search('}') + 1 + startPos
       let css2 = this.css.substring(endPos)
-      let into = ''
       into += '.'
       into += this.current.attributes.class.value
       into += '{\n'
-      for (let key in this.current.style){
+      for (let key in this.current.style) {
         into += key
         into += ':'
         into += this.current.style[key]
-        if (this.danWei.hasOwnProperty(key)){
+        if (this.danWei.hasOwnProperty(key)) {
           into += this.danWei[key]
         }
         into += ';\n'
       }
       into += '}\n'
-      this.css = css1+into+css2
+      this.css = css1 + into + css2
     },
     handleChangeColor(val) {
       this.updateCss('color', val)
@@ -206,22 +289,34 @@ export default {
   cursor: pointer;
   margin-bottom: -5px;
 }
-.el-collapse /deep/ .el-collapse-item__header{
+
+.el-collapse /deep/ .el-collapse-item__header {
   background-color: transparent;
   color: #757575;
   border-bottom: 1px solid #757575;
 }
-.el-collapse{
+
+.el-collapse {
   border: none;
 }
-.el-collapse /deep/ .el-collapse-item__content{
+
+.el-collapse /deep/ .el-collapse-item__content {
   padding-bottom: 5px;
   background-color: #333333;
 }
-.el-collapse /deep/ .el-collapse-item__header.is-active{
+
+.el-collapse /deep/ .el-collapse-item__header.is-active {
   color: #448aff;
 }
-.el-collapse-item /deep/ .el-collapse-item__wrap{
+
+.el-collapse-item /deep/ .el-collapse-item__wrap {
   border-bottom: 1px solid #757575;
+}
+
+.el-select /deep/ .el-input__inner {
+  background-color: transparent;
+  border: none;
+  padding: 0;
+  margin-top: 5px;
 }
 </style>
